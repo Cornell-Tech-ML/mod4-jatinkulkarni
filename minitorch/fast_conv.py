@@ -91,7 +91,32 @@ def _tensor_conv1d(
     s2 = weight_strides
 
     # TODO: Implement for Task 4.1.
-    raise NotImplementedError("Need to implement for Task 4.1")
+    # raise NotImplementedError("Need to implement for Task 4.1")
+
+    for b in prange(batch):
+        for out_channel in range(out_channels):
+            for out_w in range(out_width):
+                acc = 0.0
+                for in_channel in range(in_channels):
+                    for kw_idx in range(kw):
+                        if reverse:
+                            in_w = out_w - kw_idx
+                        else:
+                            in_w = out_w + kw_idx
+                        if 0 <= in_w < width:
+                            inp_idx = (
+                                b * s1[0] + in_channel * s1[1] + in_w * s1[2]
+                            )
+                            w_idx = (
+                                out_channel * s2[0] + in_channel * s2[1] + kw_idx * s2[2]
+                            )
+                            acc += input[inp_idx] * weight[w_idx]
+                out_idx = (
+                    b * out_strides[0]
+                    + out_channel * out_strides[1]
+                    + out_w * out_strides[2]
+                )
+                out[out_idx] = acc
 
 
 tensor_conv1d = njit(_tensor_conv1d, parallel=True)
@@ -221,6 +246,8 @@ def _tensor_conv2d(
 
     # TODO: Implement for Task 4.2.
     raise NotImplementedError("Need to implement for Task 4.2")
+
+
 
 
 tensor_conv2d = njit(_tensor_conv2d, parallel=True, fastmath=True)
