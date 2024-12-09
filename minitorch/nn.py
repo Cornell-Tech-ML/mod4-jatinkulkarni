@@ -6,9 +6,11 @@ from .fast_ops import FastOps
 from .tensor import Tensor
 from .tensor_functions import Function, rand, tensor
 
+reduce_max = FastOps.reduce(operators.max, float("-inf"))
+
 
 # List of functions in this file:
-# - avgpool2d: Tiled average pooling 2D
+# ✅ avgpool2d: Tiled average pooling 2D
 # - argmax: Compute the argmax as a 1-hot tensor
 # - Max: New Function for max operator
 # - max: Apply max reduction
@@ -72,3 +74,59 @@ def avgpool2d(input: Tensor, kernel: Tuple[int, int]) -> Tensor:
     return reduced_tensor
 
 # TODO: Implement for Task 4.3.
+
+def argmax(input: Tensor, dim: int) -> Tensor:
+    """Compute the argmax as a 1-hot tensor"""
+    maximum_values = reduce_max(input, dim)
+    return maximum_values == 1
+
+class Max(Function):
+    @staticmethod
+    def forward(ctx: Context, t1: Tensor, dim: Tensor) -> Tensor:
+        """Forward method for Max"""
+        dim_int = int(dim._tensor._storage[0]) if isinstance(dim, Tensor) else int(dim)
+
+        ctx.save_for_backward(t1, t1._ensure_tensor(dim_int))
+        return reduce_max(t1, dim_int)
+
+    @staticmethod
+    def backward(ctx: Context, grad_output: Tensor) -> Tuple[Tensor, Tensor]:
+        """Backward method for Max"""
+        t1, dim = ctx.saved_values
+        dim_int = int(dim._tensor._storage[0]) if isinstance(dim, Tensor) else int(dim)
+        
+        return (argmax(t1, dim_int) * grad_output, t1._ensure_tesnor(dim_int))
+
+
+def max(input: Tensor, dim: int) -> Tensor:
+    """Apply max reduction"""
+    return Max.apply(input, input._ensure_tensor(dim))
+
+
+def softmax(input: Tensor, dim: int) -> Tensor:
+    """Compute the softmax as a tensor."""
+    max_val = reduce_max(input, dim)
+    exp_input = (input - max_val).exp()
+    sum_exp = exp_input.sum(dim=dim)
+    return exp_input / sum_exp
+
+def logsoftmax(input: Tensor, dim: int) -> Tensor:
+    """Compute the log of the softmax as a tensor."""
+    max_val = reduce_max(input, dim)
+    log_sum_exp = (input - max_val).exp().sum(dim=dim).log()
+    return input - max_val - log_sum_exp
+
+def maxpool2d(input: Tensor, kernel: Tuple[int, int]) -> Tensor:
+    """Tiled max pooling 2D."""
+    tiled_tensor, new_height, new_width = tile(input, kernel)
+    pooled_tensor = max(tiled_tensor, dim=-1)
+    return pooled_tensor.view(input.shape[0], input.shape[1], new_height, new_width)
+
+def dropout(input: Tensor, rate: float, ignore: bool = False) -> Tensor:
+    """Dropout positions based on random noise, include an argument to turn off."""
+    if ignore or rate <= 0:
+        return input
+
+    mask = rand(input.shape) > rate
+    return input * mask
+
