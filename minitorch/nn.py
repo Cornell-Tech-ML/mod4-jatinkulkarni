@@ -4,7 +4,7 @@ from . import operators
 from .autodiff import Context
 from .fast_ops import FastOps
 from .tensor import Tensor
-from .tensor_functions import Function, rand, tensor
+from .tensor_functions import Function, rand
 from minitorch.tensor_data import TensorData
 
 max_reduce = FastOps.reduce(operators.max, float("-inf"))
@@ -51,16 +51,15 @@ def tile(input: Tensor, kernel: Tuple[int, int]) -> Tuple[Tensor, int, int]:
     return tiled, new_height, new_width
 
 
-
 def avgpool2d(input: Tensor, kernel: Tuple[int, int]) -> Tensor:
     """Compute 2D average pooling.
-    
+
     Args:
     ----
         input: batch x channel x height x width
         kernel: height x width of pooling
 
-    
+
     Returns:
     -------
         Tensor of size batch x channel x new_height x new_width
@@ -70,25 +69,29 @@ def avgpool2d(input: Tensor, kernel: Tuple[int, int]) -> Tensor:
     tiled_tensor, new_height, new_width = tile(input, kernel)
 
     pooled_tensor = tiled_tensor.mean(dim=4)
-    reduced_tensor = pooled_tensor.contiguous().view(batch, channel, new_height, new_width)
+    reduced_tensor = pooled_tensor.contiguous().view(
+        batch, channel, new_height, new_width
+    )
 
     return reduced_tensor
 
+
 # TODO: Implement for Task 4.3.
+
 
 # def argmax(input: Tensor, dim: int) -> Tensor:
 #     """Compute the argmax as a 1-hot tensor"""
 #     maximum_values = max_reduce(input, dim)
 #     return maximum_values == 1
 def argmax(input: Tensor, dim: int) -> Tensor:
-    """
-    Compute the argmax as a 1-hot tensor.
+    """Compute the argmax as a 1-hot tensor.
     Returns 1 at positions matching the maximum value along dim, 0 elsewhere.
     """
     # Get the maximum values along the specified dimension
     maximum_values = max_reduce(input, dim)
-    
+
     return (input == maximum_values) * 1.0
+
 
 # class Max(Function):
 #     @staticmethod
@@ -105,18 +108,19 @@ def argmax(input: Tensor, dim: int) -> Tensor:
 #         # Create a mask where the max values are located
 #         max_values = max_reduce(t1, dim_int)
 #         mask = (t1 == max_values)
-        
+
 #         # Count the number of maximum values along the specified dimension
 #         count_max = mask.sum(dim=dim_int)
-        
+
 #         # Ensure count_max is at least 1 using basic arithmetic
 #         count_max = count_max + (count_max == 0).astype(int)
-        
+
 #         # Distribute the gradient equally among the maximum values
 #         grad_input = (mask / count_max) * grad_output
-        
+
 #         # Return the gradient for t1 and None for dim as it is not a tensor
 #         return grad_input, 0.0
+
 
 class Max(Function):
     @staticmethod
@@ -139,6 +143,7 @@ class Max(Function):
         grad_input = grad_broadcast * eq_mask / eq_mask.sum(dim=int(dim.item()))
         return grad_input, 0.0
 
+
 def max(input: Tensor, dim: int) -> Tensor:
     """Apply max reduction"""
     return Max.apply(input, input._ensure_tensor(dim))
@@ -151,17 +156,20 @@ def softmax(input: Tensor, dim: int) -> Tensor:
     sum_exp = exp_input.sum(dim=dim)
     return exp_input / sum_exp
 
+
 def logsoftmax(input: Tensor, dim: int) -> Tensor:
     """Compute the log of the softmax as a tensor."""
     max_val = max_reduce(input, dim)
     log_sum_exp = (input - max_val).exp().sum(dim=dim).log()
     return input - max_val - log_sum_exp
 
+
 def maxpool2d(input: Tensor, kernel: Tuple[int, int]) -> Tensor:
     """Tiled max pooling 2D."""
     tiled_tensor, new_height, new_width = tile(input, kernel)
     pooled_tensor = max(tiled_tensor, dim=-1)
     return pooled_tensor.view(input.shape[0], input.shape[1], new_height, new_width)
+
 
 def dropout(input: Tensor, rate: float, ignore: bool = False) -> Tensor:
     """Dropout positions based on random noise, include an argument to turn off."""
@@ -170,4 +178,3 @@ def dropout(input: Tensor, rate: float, ignore: bool = False) -> Tensor:
 
     mask = rand(input.shape) > rate
     return input * mask
-

@@ -48,9 +48,10 @@ def test_avg(t: Tensor) -> None:
 #         for pos in range(4):
 #             expected = max([t[batch, i, pos] for i in range(3)])
 #             assert_close(out[batch, 0, pos], expected)
-    
+
 #     # Test backward pass using grad_check
 #     minitorch.grad_check(lambda t: minitorch.max(t, dim=2), t)
+
 
 @pytest.mark.task4_4
 def test_max_1d() -> None:
@@ -58,18 +59,25 @@ def test_max_1d() -> None:
     t.requires_grad_(True)
     out = minitorch.max(t, 0)
     out.backward()
-    expected_grad = minitorch.tensor([0.0, 0.5, 0.5])  # Example of equal distribution
-    assert_close(t.grad, expected_grad)
+    expected_grad = minitorch.tensor([0.0, 0.5, 0.5])
+    # assert_close(t.grad, expected_grad)
+    assert t.grad is not None
+    for i in range(3):
+        assert_close(t.grad[i], expected_grad[i])
+
 
 @pytest.mark.task4_4
 def test_max_2d() -> None:
     t = minitorch.tensor([[1.0, 3.0], [3.0, 2.0]])
     t.requires_grad_(True)
     out = minitorch.max(t, 1)
-    # Provide grad_output as a tensor of ones with the same shape as out
     out.backward(minitorch.tensor([[1.0], [1.0]]))
-    expected_grad = minitorch.tensor([[0.0, 1.0], [1.0, 0.0]])  # Example of one-hot distribution
-    assert_close(t.grad, expected_grad)
+    expected_grad = minitorch.tensor([[0.0, 1.0], [1.0, 0.0]])
+    # assert_close(t.grad, expected_grad)
+    assert t.grad is not None
+    for i in range(2):
+        for j in range(2):
+            assert_close(t.grad[i, j], expected_grad[i, j])
 
 
 @pytest.mark.task4_4
