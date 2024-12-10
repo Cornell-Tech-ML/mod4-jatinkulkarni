@@ -28,11 +28,56 @@ def test_avg(t: Tensor) -> None:
     minitorch.grad_check(lambda t: minitorch.avgpool2d(t, (2, 2)), t)
 
 
+# @pytest.mark.task4_4
+# @given(tensors(shape=(2, 3, 4)))
+# def test_max(t: Tensor) -> None:
+#     # Test max along the last dimension
+#     out = minitorch.max(t, 2)
+#     assert out.shape == (2, 3, 1)
+#     # Check max values (forward pass)
+#     for batch in range(2):
+#         for channel in range(3):
+#             expected = max([t[batch, channel, i] for i in range(4)])
+#             assert_close(out[batch, channel, 0], expected)
+
+#     # Test max along the middle dimension
+#     out = minitorch.max(t, 1)
+#     assert out.shape == (2, 1, 4)
+#     # Check max values (forward pass)
+#     for batch in range(2):
+#         for pos in range(4):
+#             expected = max([t[batch, i, pos] for i in range(3)])
+#             assert_close(out[batch, 0, pos], expected)
+
+#     # Test backward pass using grad_check
+#     minitorch.grad_check(lambda t: minitorch.max(t, dim=2), t)
+
+
 @pytest.mark.task4_4
-@given(tensors(shape=(2, 3, 4)))
-def test_max(t: Tensor) -> None:
-    # TODO: Implement for Task 4.4.
-    raise NotImplementedError("Need to implement for Task 4.4")
+def test_max_1d() -> None:
+    t = minitorch.tensor([1.0, 2.0, 2.0])
+    t.requires_grad_(True)
+    out = minitorch.max(t, 0)
+    out.backward()
+    expected_grad = minitorch.tensor([0.0, 0.5, 0.5])
+    # assert_close(t.grad, expected_grad)
+    assert t.grad is not None
+    for i in range(3):
+        assert_close(t.grad[i], expected_grad[i])
+
+
+@pytest.mark.task4_4
+def test_max_2d() -> None:
+    t = minitorch.tensor([[1.0, 3.0], [3.0, 2.0]])
+    t.requires_grad_(True)
+    out = minitorch.max(t, 1)
+    out.backward(minitorch.tensor([[1.0], [1.0]]))
+    expected_grad = minitorch.tensor([[0.0, 1.0], [1.0, 0.0]])
+    # assert_close(t.grad, expected_grad)
+    assert t.grad is not None
+    for i in range(2):
+        for j in range(2):
+            assert_close(t.grad[i, j], expected_grad[i, j])
 
 
 @pytest.mark.task4_4

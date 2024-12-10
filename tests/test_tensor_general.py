@@ -65,6 +65,7 @@ def test_one_args(
     name, base_fn, tensor_fn = fn
     t2 = tensor_fn(t1)
     for ind in t2._tensor.indices():
+        print(f"🐸🐸🐸🐸🐸🐸🐸🐸{t2[ind]}   {base_fn(t1[ind])}   {name}")
         assert_close(t2[ind], base_fn(t1[ind]))
 
 
@@ -306,7 +307,7 @@ if numba.cuda.is_available():
 
 
 @given(data())
-@settings(max_examples=25)
+@settings(max_examples=26)
 @pytest.mark.parametrize("fn", two_arg)
 @pytest.mark.parametrize("backend", backend_tests)
 def test_two_grad_broadcast(

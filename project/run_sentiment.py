@@ -34,8 +34,24 @@ class Conv1d(minitorch.Module):
         self.bias = RParam(1, out_channels, 1)
 
     def forward(self, input):
+        """
+        Apply 1D convolution operation
+
+        Args:
+            input: Tensor of shape (batch, in_channels, width)
+
+        Returns:
+            Output tensor of shape (batch, out_channels, out_width)
+        """
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # raise NotImplementedError("Need to implement for Task 4.5")
+
+        # Apply convolution using the conv1d operation
+        out = minitorch.conv1d(input, self.weights.value)
+
+        # Add bias - broadcasting will handle the dimensions
+        return out + self.bias.value
+
 
 
 class CNNSentimentKim(minitorch.Module):
@@ -57,19 +73,38 @@ class CNNSentimentKim(minitorch.Module):
         feature_map_size=100,
         embedding_size=50,
         filter_sizes=[3, 4, 5],
-        dropout=0.25,
+        dropout=0.25
     ):
         super().__init__()
         self.feature_map_size = feature_map_size
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # raise NotImplementedError("Need to implement for Task 4.5")
+
+        self.dropout = dropout
+        self.conv1 = Conv1d(embedding_size, feature_map_size, filter_sizes[0])
+        self.conv2 = Conv1d(embedding_size, feature_map_size, filter_sizes[1])
+        self.conv3 = Conv1d(embedding_size, feature_map_size, filter_sizes[2])
+        # self.classifier = Linear(feature_map_size * len(filter_sizes), 1)
+        self.classifier = Linear(feature_map_size, 1)
+
 
     def forward(self, embeddings):
         """
         embeddings tensor: [batch x sentence length x embedding dim]
         """
         # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        # raise NotImplementedError("Need to implement for Task 4.5")
+
+        x = embeddings.permute(0, 2, 1)
+        c1 = self.conv1(x).relu()
+        c2 = self.conv2(x).relu()
+        c3 = self.conv3(x).relu()
+        x = minitorch.max(c1, dim=2) + minitorch.max(c2, dim=2) + minitorch.max(c3, dim=2)
+        x = x.view(embeddings.shape[0], self.feature_map_size)
+        x = self.classifier(x)
+        x = minitorch.dropout(x, self.dropout)
+        return x.sigmoid().view(embeddings.shape[0])
+
 
 
 # Evaluation helper methods

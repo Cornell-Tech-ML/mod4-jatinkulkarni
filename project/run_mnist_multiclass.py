@@ -38,11 +38,35 @@ class Conv2d(minitorch.Module):
     def __init__(self, in_channels, out_channels, kh, kw):
         super().__init__()
         self.weights = RParam(out_channels, in_channels, kh, kw)
-        self.bias = RParam(out_channels, 1, 1)
+        self.bias = RParam(out_channels)
 
     def forward(self, input):
-        # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+        """
+        Apply 2D convolution operation
+
+        Args:
+            input: Tensor of shape (batch, in_channels, height, width)
+
+        Returns:
+            Output tensor of shape (batch, out_channels, out_height, out_width)
+        """
+        batch, in_channels, h, w = input.shape
+        out_channels, in_channels2, kh, kw = self.weights.value.shape
+
+        assert in_channels == in_channels2, "Input channels must match weight channels"
+
+        # Calculate output dimensions
+        out_h = h - kh + 1
+        out_w = w - kw + 1
+
+        # Use the built-in conv2d operation
+        out = minitorch.conv2d(input, self.weights.value)
+
+        # Add bias - reshape it to match broadcasting
+        return out + self.bias.value.view(out_channels, 1, 1)
+
+
+
 
 
 class Network(minitorch.Module):
@@ -59,20 +83,56 @@ class Network(minitorch.Module):
     6. Apply a Linear to size C (number of classes).
     7. Apply a logsoftmax over the class dimension.
     """
-
     def __init__(self):
         super().__init__()
 
-        # For vis
+        # First convolution layer: 1->4 channels, 3x3 kernel
+        self.conv1 = Conv2d(1, 4, 3, 3)
+
+        # Second convolution layer: 4->8 channels, 3x3 kernel
+        self.conv2 = Conv2d(4, 8, 3, 3)
+
+        # Recalculate size after convolutions and pooling
+        # Input: 28x28
+        # After conv1: 26x26 (28 - 3 + 1)
+        # After conv2: 24x24 (26 - 3 + 1)
+        # After 4x4 pooling: 6x6 (24/4 = 6)
+        # 8 channels * 6 * 6 = 288 features
+        self.flattened_size = 8 * 7 * 7
+
+        # Linear layers
+        self.fc1 = Linear(self.flattened_size, 64)
+        self.fc2 = Linear(64, C)
+
+        # For visualization
         self.mid = None
         self.out = None
 
-        # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
-
     def forward(self, x):
-        # TODO: Implement for Task 4.5.
-        raise NotImplementedError("Need to implement for Task 4.5")
+
+        # First conv + ReLU
+        self.mid = self.conv1.forward(x).relu()
+
+        # Second conv + ReLU
+        self.out = self.conv2.forward(self.mid).relu()
+
+        # Max pooling with 4x4 kernel
+        pooled = minitorch.maxpool2d(self.out, (4, 4))
+
+        # Flatten: combine all dimensions except batch
+        batch_size = pooled.shape[0]
+        flattened = pooled.view(batch_size, self.flattened_size)
+        flattened = pooled.view(batch_size, self.flattened_size)
+
+        # First fully connected + ReLU + Dropout
+        fc1_out = self.fc1.forward(flattened).relu()
+        fc1_dropped = minitorch.dropout(fc1_out, 0.25)
+
+        # Second fully connected
+        logits = self.fc2.forward(fc1_dropped)
+
+        # Apply log softmax over class dimension
+        return minitorch.softmax(logits, dim=1).log()
 
 
 def make_mnist(start, stop):
@@ -99,7 +159,7 @@ class ImageTrain:
         return self.model.forward(minitorch.tensor([x], backend=BACKEND))
 
     def train(
-        self, data_train, data_val, learning_rate, max_epochs=500, log_fn=default_log_fn
+        self, data_train, data_val, learning_rate, max_epochs=25, log_fn=default_log_fn
     ):
         (X_train, y_train) = data_train
         (X_val, y_val) = data_val
