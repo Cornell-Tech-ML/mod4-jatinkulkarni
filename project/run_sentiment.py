@@ -73,25 +73,19 @@ class CNNSentimentKim(minitorch.Module):
         feature_map_size=100,
         embedding_size=50,
         filter_sizes=[3, 4, 5],
-        dropout=0.3, # 0.25
+        dropout=0.25
     ):
         super().__init__()
         self.feature_map_size = feature_map_size
         # TODO: Implement for Task 4.5.
         # raise NotImplementedError("Need to implement for Task 4.5")
+
         self.dropout = dropout
-
-        # Create parallel convolutional layers for each filter size
-        self.convs = []
-        for filter_size in filter_sizes:
-            conv = Conv1d(embedding_size, feature_map_size, filter_size)
-            self.convs.append(conv)
-            # Remove the add_module call since it's not supported
-            # self.add_module(f"conv_{filter_size}", conv)
-
-        # Linear layer for final classification
-        total_features = feature_map_size * len(filter_sizes)
-        self.classifier = Linear(total_features, 1)
+        self.conv1 = Conv1d(embedding_size, feature_map_size, filter_sizes[0])
+        self.conv2 = Conv1d(embedding_size, feature_map_size, filter_sizes[1])
+        self.conv3 = Conv1d(embedding_size, feature_map_size, filter_sizes[2])
+        # self.classifier = Linear(feature_map_size * len(filter_sizes), 1)
+        self.classifier = Linear(feature_map_size, 1)
 
 
     def forward(self, embeddings):
@@ -100,42 +94,16 @@ class CNNSentimentKim(minitorch.Module):
         """
         # TODO: Implement for Task 4.5.
         # raise NotImplementedError("Need to implement for Task 4.5")
-        # Transpose to [batch x embedding_dim x sentence_length] for Conv1d
+
         x = embeddings.permute(0, 2, 1)
-
-        # Determine batch size from the input
-        batch_size = x.shape[0]
-
-        # Apply each conv layer in parallel
-        conv_outputs = []
-        for conv in self.convs:
-            # Apply convolution and ReLU
-            conv_out = conv.forward(x).relu()
-
-            # Max-over-time pooling
-            pooled = minitorch.max(conv_out, dim=2)
-            conv_outputs.append(pooled)
-
-        # Initialize the combined tensor with the correct shape
-        x = minitorch.zeros((batch_size, self.feature_map_size * len(self.convs)), backend=BACKEND)
-
-        # Copy features into the combined tensor
-        start_idx = 0
-        for output in conv_outputs:
-            # output has shape (batch_size, feature_map_size, 1)
-            for b in range(batch_size):
-                for i in range(self.feature_map_size):
-                    x[b, start_idx + i] = output[b, i, 0]
-            start_idx += self.feature_map_size
-
-        # Apply dropout
+        c1 = self.conv1(x).relu()
+        c2 = self.conv2(x).relu()
+        c3 = self.conv3(x).relu()
+        x = minitorch.max(c1, dim=2) + minitorch.max(c2, dim=2) + minitorch.max(c3, dim=2)
+        x = x.view(embeddings.shape[0], self.feature_map_size)
+        x = self.classifier(x)
         x = minitorch.dropout(x, self.dropout)
-
-        # Final classification layer
-        x = self.classifier.forward(x)
-
-        # Apply sigmoid
-        return x.sigmoid()
+        return x.sigmoid().view(embeddings.shape[0])
 
 
 
